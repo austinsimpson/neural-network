@@ -178,7 +178,6 @@ public:
     double lengthSquared() const
     {
         auto result = 0.0;
-
         for (auto index : range(0, n))
         {
             const auto element = (*this)[index];
