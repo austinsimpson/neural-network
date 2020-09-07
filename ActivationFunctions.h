@@ -1,64 +1,87 @@
 #ifndef ACTIVATIONFUNCTIONS_H
 #define ACTIVATIONFUNCTIONS_H
 
+#include "ConstexprMath.h"
+#include "VectorND.h"
+
+#include <numeric>
+
+class IdentityActivationFunction
+{
+public:
+    constexpr IdentityActivationFunction() {};
+
+    template <size_t InputDimension>
+    constexpr VectorND<InputDimension> getValue(const VectorND<InputDimension>& input) const
+    {
+        return input;
+    }
+
+    template <size_t InputDimension>
+    constexpr VectorND<InputDimension> getDerivativeValue(const VectorND<InputDimension>& input) const
+    {
+        return VectorND<InputDimension>(1.);
+    }
+
+};
+
+class SoftmaxActivationFunction
+{
+public:
+    constexpr SoftmaxActivationFunction() {}
+
+    template <size_t InputDimension>
+    constexpr VectorND<InputDimension> getValue(const VectorND<InputDimension>& input) const
+    {
+        double sum = 0.;
+        for (const double value: input)
+        {
+            sum += constexprExp(value);
+        }
+
+        VectorND<InputDimension> result{};
+        for (int index = 0; index < InputDimension; ++index)
+        {
+            result.setValue(index, constexprExp(input[index]) / sum);
+        }
+        return result;
+    }
+
+    template <size_t InputDimension>
+    constexpr VectorND<InputDimension> getDerivativeValue(const VectorND<InputDimension>& input) const
+    {
+        constexpr VectorND<InputDimension> oneVec{1.0};
+        VectorND<InputDimension> value = getValue(input);
+        value.pointwiseMultiply(oneVec - value);
+        return value;
+    }
+};
+
 class ReluActivationFunction
 {
 public:
     constexpr ReluActivationFunction() {}
 
-    constexpr double getValue(double input) const
+    template <size_t InputDimension>
+    constexpr VectorND<InputDimension> getValue(const VectorND<InputDimension>& input) const
     {
-        if (input <= 0.0)
+        VectorND<InputDimension> result{};
+        for (int index = 0; index < InputDimension; ++index)
         {
-            return 0.0;
+            result.setValue(index, input[index] < 0. ? 0. : input[index]);
         }
-        else
-        {
-            return input;
-        }
+        return result;
     }
 
-    constexpr double getDerivativeValue(double input) const
+    template <size_t InputDimension>
+    constexpr VectorND<InputDimension> getDerivativeValue(const VectorND<InputDimension>& input) const
     {
-        if (input <= 0.0)
+        constexpr VectorND<InputDimension> result;
+        for (int index = 0; index < InputDimension; ++index)
         {
-            return 0.0;
+            result[index] = input[index] < 0. ? 0. : 1.;
         }
-        else
-        {
-            return 1.0;
-        }
-    }
-};
-
-
-class SteepReluActivationFunction
-{
-public:
-    constexpr SteepReluActivationFunction() {}
-
-    constexpr double getValue(double input) const
-    {
-        if (input <= 0.0)
-        {
-            return 0.0;
-        }
-        else
-        {
-            return input * 3;
-        }
-    }
-
-    constexpr double getDerivativeValue(double input) const
-    {
-        if (input <= 0.0)
-        {
-            return 0.0;
-        }
-        else
-        {
-            return 3.0;
-        }
+        return result;
     }
 };
 

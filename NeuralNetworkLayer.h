@@ -1,20 +1,24 @@
 #ifndef NEURALNETWORKLAYER_H
 #define NEURALNETWORKLAYER_H
 
-template <typename ActivationFunction>
+template <typename ActivationFunctionT, size_t NeuronCount>
 class NeuralNetworkLayer
 {
 public:
-    constexpr NeuralNetworkLayer(size_t neuronCount) : _neuronCount(neuronCount) {}
+    constexpr NeuralNetworkLayer() {}
 
-    constexpr size_t neuronCount() const
+    static constexpr size_t neuronCount()
     {
-        return _neuronCount;
+        return NeuronCount;
+    }
+
+    static constexpr ActivationFunctionT ActivationFunction()
+    {
+        return _activationFunction;
     }
 
 private:
-    ActivationFunction _activationFunction;
-    size_t _neuronCount;
+    static ActivationFunctionT _activationFunction;
 };
 
 #endif // NEURALNETWORKLAYER_H

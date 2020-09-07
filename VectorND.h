@@ -29,19 +29,15 @@ template <size_t n>
 class VectorND
 {
 public:
-    constexpr VectorND()
+    constexpr VectorND() : _values{}
     {
-        _values.fill(0.0);
+        std::fill(_values.begin(), _values.end(), 0.);
     }
 
     template <typename... T>
     constexpr VectorND(T... ts): _values{ts...} {}
 
-    constexpr VectorND(double fillValue) {
-        _values.fill(fillValue);
-    }
-
-    VectorND(const VectorND<n>& other) : _values(other._values){}
+    constexpr VectorND(const VectorND<n>& other) : _values(other._values){}
 
 	VectorND<n>& operator= (const VectorND<n>& other)
 	{
@@ -67,7 +63,27 @@ public:
         return n;
     }
 
-    double operator[](int i) const
+    constexpr auto begin()
+    {
+        return _values.begin();
+    }
+
+    constexpr auto end()
+    {
+        return _values.end();
+    }
+
+    constexpr auto begin() const
+    {
+        return _values.cbegin();
+    }
+
+    constexpr auto end() const
+    {
+        return _values.cend();
+    }
+
+    constexpr double operator[](int i) const
     {
         if (0 <= i && i < n)
         {
@@ -76,7 +92,7 @@ public:
         return 0.0;
     }
 
-    double& operator[](int i)
+    constexpr double& operator[](int i)
     {
         if (0 <= i && i < n)
         {
@@ -85,34 +101,52 @@ public:
         throw;
     }
 
-    VectorND<n> operator+(const VectorND<n>& vector) const
+
+    constexpr void setValue(const int index, const double value)
+    {
+        if (0 <= index && index < n)
+        {
+            _values[index] = value;
+        }
+    }
+
+    constexpr VectorND<n> operator+(const VectorND<n>& vector) const
     {
         VectorND<n> result;
 #pragma omp parallel for
-        for (auto index : range(0, n))
+        for (int index = 0; index < n; ++index)
         {
             result[index] = (*this)[index] + vector[index];
         }
         return result;
     }
 
-    VectorND<n>& operator+=(const VectorND<n>& other)
+    constexpr VectorND<n>& operator+=(const VectorND<n>& other)
     {
-        for (auto index : range(0, n))
+        for (int index = 0; index < n; ++index)
         {
             (*this)[index] += other[index];
         }
         return *this;
     }
 
-    VectorND<n> operator-(const VectorND<n>& other) const
+    constexpr VectorND<n> operator-(const VectorND<n>& other) const
     {
-        return (*this) + (-1.0 * other);
+        VectorND<n> result;
+#pragma omp parallel for
+        for (int index = 0; index < n; ++index)
+        {
+            result[index] = (*this)[index] - other[index];
+        }
+        return result;
     }
 
-    VectorND<n>& operator-=(const VectorND<n>& other)
+    constexpr VectorND<n>& operator-=(const VectorND<n>& other)
     {
-		(*this) += (other * (-1.0));
+        for (int index = 0; index < n; ++index)
+        {
+            (*this)[index] -= other[index];
+        }
         return *this;
     }
 
@@ -120,7 +154,8 @@ public:
     {
         double result = 0.0;
 
-        for (auto index : range(0, n))
+#pragma omp parallel for
+        for (int index = 0; index < n; ++index)
         {
             result += (*this)[index] * vector[index];
         }
@@ -144,12 +179,21 @@ public:
 		return operator*(1.0 / scalar);
 	}
 
-    void pointwiseDivide(const VectorND<n>& other)
+    constexpr void pointwiseDivide(const VectorND<n>& other)
     {
         #pragma omp parallel for
-        for (const auto i : range(0, n))
+        for (int i = 0; i < n; ++i)
         {
             (*this)[i] /= other[i];
+        }
+    }
+
+    constexpr void pointwiseMultiply(const VectorND<n>& other)
+    {
+        #pragma omp parallel for
+        for (int i = 0; i < n; ++i)
+        {
+            (*this)[i] *= other[i];
         }
     }
 

@@ -24,11 +24,8 @@
 class range
 {
 public:
-    range(int begin, int end)
+    range(int begin, int end) : _begin{begin}, _end{end}, _currentValue{begin}
     {
-        this->_begin = begin;
-        this->_end = end;
-        this->_currentValue = begin;
     }
 
     range(const range& other) : _begin(other._begin), _end(other._end), _currentValue(other._currentValue) {}
