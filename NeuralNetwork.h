@@ -10,6 +10,21 @@
 #include "UniformDistribution.h"
 #include "VectorND.h"
 
+template <typename Layer, typename NextLayer, typename... Layers>
+static constexpr size_t arraySizeHelper()
+{
+    constexpr size_t weightMatrixSize = Layer::neuronCount() * NextLayer::neuronCount();
+    constexpr size_t biasSize = NextLayer::neuronCount();
+    if constexpr (sizeof...(Layers) == 0)
+    {
+        return weightMatrixSize + biasSize;
+    }
+    else
+    {
+        return weightMatrixSize + biasSize + arraySizeHelper<NextLayer, Layers...>();
+    }
+}
+
 template <typename Layer, typename... Layers>
 static constexpr size_t inputSizeHelper()
 {
@@ -26,6 +41,21 @@ static constexpr size_t outputSizeHelper()
     else
     {
         return outputSizeHelper<Layers...>();
+    }
+}
+
+
+template <typename Layer, typename... Layers>
+static constexpr size_t maximalNeuronCountHelper()
+{
+    if constexpr (sizeof...(Layers) == 0)
+    {
+        return Layer::neuronCount();
+    }
+    else
+    {
+        constexpr size_t maximum = maximalNeuronCountHelper<Layers...>();
+        return Layer::neuronCount() < maximum ? maximum : Layer::neuronCount();
     }
 }
 
@@ -72,7 +102,35 @@ public:
     }
 
     template <size_t T>
-    constexpr void train(const std::array<TrainingPointND<inputSizeHelper<Layers...>(), outputSizeHelper<Layers...>()>, T>& trainingData, size_t numberOfEpochs)
+    constexpr void train(const std::array<TrainingPointND<inputSizeHelper<Layers...>(), outputSizeHelper<Layers...>()>, T>& trainingData, size_t numberOfEpochs, double learningRate = 0.01)
+    {
+        for (size_t index = 0; index < numberOfEpochs; ++index)
+        {
+            for (const auto& trainingPoint : trainingData)
+            {
+                const auto weightUpdates = getWeightUpdates(trainingPoint);
+                for (size_t weightIndex = 0; weightIndex < _weights.size(); ++weightIndex)
+                {
+                    _weights[weightIndex] -= learningRate * weightUpdates[weightIndex];
+                }
+            }
+        }
+    }
+
+    constexpr std::array<double, arraySizeHelper<Layers...>()> getWeightUpdates(const TrainingPointND<inputSizeHelper<Layers...>(), outputSizeHelper<Layers...>()>& trainingPoint)
+    {
+
+    }
+
+    constexpr auto getActivations(const VectorND<inputSizeHelper<Layers...>>& inputPoint) const
+    {
+        std::array<VectorND<maximalNeuronCountHelper<Layers...>()>, sizeof...(Layers)> result;
+        getActivations<Layers...>(inputPoint, result, 0);
+        return result;
+    }
+
+    template <typename Layer, typename NextLayer, typename... RemainingLayers>
+    constexpr void getActivations(const VectorND<Layer::neuronCount()>& input, std::array<VectorND<maximalNeuronCountHelper<Layers...>()>, sizeof...(Layers)>& accumulator, size_t offset = 0)
     {
 
     }
@@ -82,9 +140,14 @@ public:
         return _networkSize;
     }
 
-    constexpr size_t inputDimension()
+    constexpr size_t inputDimension() const
     {
         return _inputDimension;
+    }
+
+    constexpr size_t outputDimension() const
+    {
+        return _outputDimension;
     }
 
     constexpr auto weights() const
@@ -93,24 +156,9 @@ public:
     }
 
 private:
-    template <typename Layer, typename NextLayer, typename... Layers>
-    static constexpr size_t arraySizeHelper()
-    {
-        constexpr size_t weightMatrixSize = Layer::neuronCount() * NextLayer::neuronCount();
-        constexpr size_t biasSize = NextLayer::neuronCount();
-        if constexpr (sizeof...(Layers) == 0)
-        {
-            return weightMatrixSize + biasSize;
-        }
-        else
-        {
-            return weightMatrixSize + biasSize + arraySizeHelper<NextLayer, Layers...>();
-        }
-    }
-
     static constexpr size_t _networkSize = arraySizeHelper<Layers...>();
     static constexpr size_t _inputDimension = inputSizeHelper<Layers...>();
-    static constexpr size_t _outputDimension = 5;
+    static constexpr size_t _outputDimension = outputSizeHelper<Layers...>();
     std::array<double, _networkSize> _weights;
     CostFunction<_outputDimension> _costFunction;
 };

@@ -20,18 +20,5 @@ int main(int argc, char** argv)
     //constexpr VectorND<10> result = net.evaluate(MnistDataSet[0].input());
 
 
-    constexpr CostFunction<3> costFunction{FunctionType::CrossEntropy};
-
-    constexpr VectorND<3> test{0.1999, 0.00001, 0.00001};
-    constexpr VectorND<3> realValue{1., 0., 0.};
-
-    constexpr auto cost = costFunction.getGradient(test, realValue);
-
-    for (const auto val : cost)
-    {
-        std::cout << val << std::endl;
-    }
-    constexpr VectorND<3> deriv = SoftmaxActivationFunction().getDerivativeValue(test);
-
     return 0;
 }
