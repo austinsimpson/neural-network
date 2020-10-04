@@ -6,7 +6,7 @@
 
 enum class FunctionType
 {
-    LeastSquares = 1,
+    MeanSquaredError = 1,
     CrossEntropy = 2
 };
 
@@ -16,23 +16,24 @@ class CostFunction
 public:
     constexpr CostFunction(FunctionType functionType): _functionType(functionType) {}
 
-    constexpr double getValue(const VectorND<N>& approximation, const VectorND<N>& observed) const {
+    double getValue(const VectorND<N>& approximation, const VectorND<N>& observed) const {
         double result = 0.;
         switch (_functionType)
         {
-            case FunctionType::LeastSquares:
+            case FunctionType::MeanSquaredError:
             {
                 const VectorND<N> difference = approximation - observed;
                 for (const auto value : difference) {
                     result += value * value;
                 }
+                result = result / 2.;
                 break;
             }
             case FunctionType::CrossEntropy:
             {
                 for (size_t index = 0; index < N; ++index)
                 {
-                    result += -1.*((observed[index] * constexprLog(approximation[index])) + (1. - observed[index]) * (constexprLog(1. - approximation[index])));
+                    result += -1.*((observed[index] * log(approximation[index])) + (1. - observed[index]) * (log(1. - approximation[index])));
                 }
                 break;
             }
@@ -40,13 +41,13 @@ public:
         return result;
     }
 
-    constexpr VectorND<N> getGradient(const VectorND<N>& approximation, const VectorND<N>& observed) const
+    VectorND<N> getGradient(const VectorND<N>& approximation, const VectorND<N>& observed) const
     {
         VectorND<N> result{0.0};
         switch(_functionType)
         {
-            case FunctionType::LeastSquares:
-                return approximation - observed;
+            case FunctionType::MeanSquaredError:
+                result = approximation - observed;
                 break;
             case FunctionType::CrossEntropy:
                 for (size_t index = 0; index < N; ++index)
@@ -56,6 +57,11 @@ public:
                 break;
         }
         return result;
+    }
+
+    constexpr FunctionType type() const
+    {
+        return _functionType;
     }
 private:
     FunctionType _functionType;

@@ -7,6 +7,7 @@ template <size_t InputDimension, size_t OutputDimension>
 class TrainingPointND
 {
 public:
+    constexpr TrainingPointND(): _input{}, _output{} {}
     constexpr TrainingPointND(const VectorND<InputDimension>& inputVector, const VectorND<OutputDimension>& outputVector): _input(inputVector), _output(outputVector)  {}
 
     constexpr VectorND<InputDimension> input() const

@@ -22,6 +22,7 @@
 //SOFTWARE.
 
 #include <array>
+#include <numeric>
 
 #include "Range.h"
 
@@ -39,18 +40,17 @@ public:
 
     constexpr VectorND(const VectorND<n>& other) : _values(other._values){}
 
-	VectorND<n>& operator= (const VectorND<n>& other)
+    constexpr VectorND<n>& operator= (const VectorND<n>& other)
 	{
-		for (auto index : range(0, n))
+        for (int index = 0; index < n; ++index)
 		{
 			_values[index] = other[index];
 		}
 		return *this;
 	}
 
-    VectorND<n>& operator= (std::initializer_list<double> list)
+    constexpr VectorND<n>& operator= (std::initializer_list<double> list)
 	{
-		Q_ASSERT (list.size() == n);
 #pragma omp parallel for
 		for (auto value : list)
 		{
@@ -188,13 +188,25 @@ public:
         }
     }
 
-    constexpr void pointwiseMultiply(const VectorND<n>& other)
+    constexpr VectorND<n>& pointwiseMultiply(const VectorND<n>& other)
     {
         #pragma omp parallel for
         for (int i = 0; i < n; ++i)
         {
             (*this)[i] *= other[i];
         }
+        return *this;
+    }
+
+    constexpr VectorND<n> pointwiseMultiply(const VectorND<n>& other) const
+    {
+        VectorND<n> result{};
+        #pragma omp parallel for
+        for (int i = 0; i < n; ++i)
+        {
+            result[i] = (*this)[i] * other[i];
+        }
+        return result;
     }
 
 
@@ -219,7 +231,7 @@ public:
 		return result;
 	}
 
-    double lengthSquared() const
+    constexpr double lengthSquared() const
     {
         auto result = 0.0;
         for (auto index : range(0, n))
@@ -235,6 +247,29 @@ public:
     {
         return sqrt(lengthSquared());
     }
+
+    constexpr double maxElement() const
+    {
+        double maximum = std::numeric_limits<double>::min();
+        for (const double value: *this) {
+            if (value > maximum)
+            {
+                maximum = value;
+            }
+        }
+        return maximum;
+    }
+
+    static constexpr VectorND<n> ones()
+    {
+        VectorND<n> result;
+        for (int i = 0; i < n; ++i)
+        {
+            result[i] = 1.;
+        }
+        return result;
+    }
+
 private:
     std::array<double, n> _values;
 };

@@ -20,7 +20,7 @@ public:
     template <size_t InputDimension>
     constexpr VectorND<InputDimension> getDerivativeValue(const VectorND<InputDimension>& input) const
     {
-        return VectorND<InputDimension>(1.);
+        return VectorND<InputDimension>::ones();
     }
 
 };
@@ -31,18 +31,19 @@ public:
     constexpr SoftmaxActivationFunction() {}
 
     template <size_t InputDimension>
-    constexpr VectorND<InputDimension> getValue(const VectorND<InputDimension>& input) const
+    VectorND<InputDimension> getValue(const VectorND<InputDimension>& input) const
     {
+        auto maximum = input.maxElement();
         double sum = 0.;
         for (const double value: input)
         {
-            sum += constexprExp(value);
+            sum += exp(value - maximum);
         }
 
         VectorND<InputDimension> result{};
         for (int index = 0; index < InputDimension; ++index)
         {
-            result.setValue(index, constexprExp(input[index]) / sum);
+            result.setValue(index, exp(input[index] - maximum) / sum);
         }
         return result;
     }
@@ -50,7 +51,7 @@ public:
     template <size_t InputDimension>
     constexpr VectorND<InputDimension> getDerivativeValue(const VectorND<InputDimension>& input) const
     {
-        constexpr VectorND<InputDimension> oneVec{1.0};
+        constexpr VectorND<InputDimension> oneVec = VectorND<InputDimension>::ones();
         VectorND<InputDimension> value = getValue(input);
         value.pointwiseMultiply(oneVec - value);
         return value;
@@ -76,13 +77,48 @@ public:
     template <size_t InputDimension>
     constexpr VectorND<InputDimension> getDerivativeValue(const VectorND<InputDimension>& input) const
     {
-        constexpr VectorND<InputDimension> result;
+        VectorND<InputDimension> result;
         for (int index = 0; index < InputDimension; ++index)
         {
-            result[index] = input[index] < 0. ? 0. : 1.;
+            result.setValue(index, input[index] < 0. ? 0. : 1.);
         }
         return result;
     }
+};
+
+class SigmoidActivationFunction
+{
+public:
+    constexpr SigmoidActivationFunction() {}
+
+    template <size_t InputDimension> 
+    VectorND<InputDimension> getValue(const VectorND<InputDimension>& input) const
+    {
+        VectorND<InputDimension> result{};
+        for (int index = 0; index < InputDimension; ++index)
+        {
+            if (input[index] >= 0)
+            {
+                result[index] = 1. / (1. + exp(-input[index]));
+            }
+            else
+            {
+                double exponent = exp(input[index]);
+                result[index] = exponent / (1. + exponent);
+            }
+        }
+        return result;
+    }
+
+    template <size_t InputDimension>
+    VectorND<InputDimension> getDerivativeValue(const VectorND<InputDimension>& input) const
+    {
+        VectorND<InputDimension> oneVector = VectorND<InputDimension>::ones();
+        VectorND<InputDimension> functionValue = getValue(input);
+        VectorND<InputDimension> result = oneVector - functionValue;
+        return result.pointwiseMultiply(functionValue);
+    }
+
 };
 
 #endif // ACTIVATIONFUNCTIONS_H

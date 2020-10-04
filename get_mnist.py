@@ -37,7 +37,7 @@ def export_mnist_data(root_directory):
     constexpr_bois = []
 
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
-    for image, label, _ in zip(x_train, y_train, range(1000)):
+    for image, label, _ in zip(x_test, y_test, range(100)):
         image_flattened = np.reshape(image, (28 * 28))
         constexpr_boi = "\tTrainingPointND<" + str(28 * 28) + ", " + str(10) + ">{{" + ", ".join(str(pixel / 255) for pixel in image_flattened) + "}, {" + label_helper(label) + "}}"
         constexpr_bois.append(constexpr_boi)
