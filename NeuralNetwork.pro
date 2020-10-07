@@ -3,7 +3,7 @@ TARGET = NeuralNetwork
 QT += core gui widgets
 
 CONFIG += c++latest
-
+QMAKE_CXXFLAGS += -fconstexpr-steps:100000000
 HEADERS += \
     ActivationFunctions.h \
     ConstexprMath.h \

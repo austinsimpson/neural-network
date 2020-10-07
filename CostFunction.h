@@ -41,7 +41,7 @@ public:
         return result;
     }
 
-    VectorND<N> getGradient(const VectorND<N>& approximation, const VectorND<N>& observed) const
+    constexpr VectorND<N> getGradient(const VectorND<N>& approximation, const VectorND<N>& observed) const
     {
         VectorND<N> result{0.0};
         switch(_functionType)

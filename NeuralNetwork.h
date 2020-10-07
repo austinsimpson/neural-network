@@ -4,14 +4,11 @@
 #include <algorithm>
 #include <array>
 #include <tuple>
-#include <vector>
-#include <iostream>
 
 #include "CostFunction.h"
 #include "NeuralNetworkLayer.h"
 #include "Pcg.h"
 #include "TrainingPointND.h"
-#include "TrainingMetrics.h"
 #include "UniformDistribution.h"
 #include "VectorND.h"
 
@@ -95,12 +92,15 @@ public:
     constexpr NeuralNetwork
     (
         FunctionType costFunctionType, 
-        const std::array<TrainingPointND<inputSizeHelper<Layers...>(), outputSizeHelper<Layers...>()>, N>& trainingData
+        const std::array<TrainingPointND<inputSizeHelper<Layers...>(), outputSizeHelper<Layers...>()>, N>& trainingData,
+        size_t epochs,
+        size_t batchSize,
+        double learningRate
     ): 
         _costFunction(costFunctionType)
     {
         initializeWeights();
-        train(trainingData);
+        train(trainingData, epochs, batchSize, learningRate);
     }
 
     constexpr void initializeWeights()
@@ -150,7 +150,7 @@ public:
     }
 
     template <size_t N>
-    constexpr TrainingMetrics train
+    constexpr void train
     (
         const std::array<TrainingPointND<inputSizeHelper<Layers...>(), outputSizeHelper<Layers...>()>, N>& trainingData, 
         size_t numberOfEpochs = 5000,
@@ -158,8 +158,6 @@ public:
         double learningRate = 0.00001
     )
     {
-        TrainingMetrics result{trainingData.size()};
-
         PCG pcg;
         for (size_t epochIndex = 0; epochIndex < numberOfEpochs; ++epochIndex)
         {
@@ -170,20 +168,10 @@ public:
                 const auto weightUpdates = getWeightUpdates(trainingPoint);
                 for (size_t weightIndex = 0; weightIndex < _weights.size(); ++weightIndex)
                 {
-                    if (isinf(weightUpdates[weightIndex]) == false && isnan(weightUpdates[weightIndex]) == false)
-                        _weights[weightIndex] -= learningRate * weightUpdates[weightIndex];
+                    _weights[weightIndex] -= learningRate * weightUpdates[weightIndex];
                 }
-                const auto eval = evaluate(trainingPoint.input());
-                const auto error = _costFunction.getValue(eval, trainingPoint.output());       
-               
-                std::cout << trainingPointIndex << '\n';
-
-                result.addErrorPoint(epochIndex, trainingPointNumber, error);
             }
         }
-        std::cout << std::endl;
-
-        return result;
     }
 
     constexpr auto getWeightUpdates
@@ -212,14 +200,14 @@ public:
     )   const
     {
         const auto& currentDelta = std::get<0>(deltas);
-        const auto currentActivation = NextLayer::ActivationFunction().getValue(std::get<0>(preActivations));
+        const auto currentActivation = Layer::ActivationFunction().getValue(std::get<0>(preActivations));
         for (size_t nextLayerNeuronIndex = 0; nextLayerNeuronIndex < NextLayer::neuronCount(); ++nextLayerNeuronIndex)
         {
             for (size_t layerNeuronIndex = 0; layerNeuronIndex < Layer::neuronCount(); ++layerNeuronIndex)
             {
                 weightUpdates[nextLayerNeuronIndex * (Layer::neuronCount() + 1) + layerNeuronIndex + weightOffset] = currentDelta[nextLayerNeuronIndex] * currentActivation[layerNeuronIndex];
             }
-            weightUpdates[nextLayerNeuronIndex * (Layer::neuronCount() + 1) + nextLayerNeuronIndex + weightOffset] = currentDelta[nextLayerNeuronIndex];
+            weightUpdates[nextLayerNeuronIndex * Layer::neuronCount() + nextLayerNeuronIndex + Layer::neuronCount() + weightOffset] = currentDelta[nextLayerNeuronIndex];
         }
         if constexpr(sizeof...(RemainingLayers) > 0)
         {
@@ -263,15 +251,15 @@ public:
     )   const
     {
         VectorND<NextLayer::neuronCount()> nextInput;
-        for (int i = 0; i < NextLayer::neuronCount(); ++i)
+        for (int nextLayerNeuronIndex = 0; nextLayerNeuronIndex < NextLayer::neuronCount(); ++nextLayerNeuronIndex)
         {
             double element = 0.;
-            for (int r = 0; r < Layer::neuronCount(); ++r)
+            for (int layerNeuronIndex = 0; layerNeuronIndex < Layer::neuronCount(); ++layerNeuronIndex)
             {
-                element += _weights[i * (Layer::neuronCount() + 1) + r + offset] * input[r];
+                element += _weights[nextLayerNeuronIndex * (Layer::neuronCount() + 1) + layerNeuronIndex + offset] * input[layerNeuronIndex];
             }
-            element += _weights[(i * Layer::neuronCount()) + Layer::neuronCount() + i + offset];
-            nextInput.setValue(i, element);
+            element += _weights[(nextLayerNeuronIndex * Layer::neuronCount()) + Layer::neuronCount() + nextLayerNeuronIndex + offset];
+            nextInput.setValue(nextLayerNeuronIndex, element);
         }
         if constexpr (sizeof...(RemainingLayers) > 0)
         {
@@ -302,19 +290,19 @@ public:
     )   const
     {
         const auto deltasInLaterLayers = getDeltas<LayerIndex + 1, NextLayer, RemainingLayers...>(trainingPoint, preActivations, weightOffset + getWeightMatrixSize<Layer, NextLayer>());
-        const auto& nextError = std::get<0>(deltasInLaterLayers);
+        const auto& nextDelta = std::get<0>(deltasInLaterLayers);
         const auto activationDerivativeAtLayer = Layer::ActivationFunction().getDerivativeValue(std::get<LayerIndex>(preActivations));
 
         VectorND<Layer::neuronCount()> errorAtThisLayer;
-        for (size_t rowIndex = 0; rowIndex < Layer::neuronCount(); ++rowIndex)
+        for (size_t layerNodeIndex = 0; layerNodeIndex < Layer::neuronCount(); ++layerNodeIndex)
         {
             double errorElement = 0.;
-            for (size_t columnIndex = 0; columnIndex < NextLayer::neuronCount(); ++columnIndex)
+            for (size_t nextLayerNodeIndex = 0; nextLayerNodeIndex < NextLayer::neuronCount(); ++nextLayerNodeIndex)
             {
-                const double& weight = _weights[columnIndex * (Layer::neuronCount() + 1) + rowIndex + weightOffset];
-                errorElement += weight * nextError[columnIndex];
+                const double& weight = _weights[nextLayerNodeIndex * (Layer::neuronCount() + 1) + layerNodeIndex + weightOffset];
+                errorElement += weight * nextDelta[nextLayerNodeIndex];
             }
-            errorAtThisLayer.setValue(rowIndex, errorElement);
+            errorAtThisLayer.setValue(layerNodeIndex, errorElement);
         }
 
         errorAtThisLayer.pointwiseMultiply(activationDerivativeAtLayer);

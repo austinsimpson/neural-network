@@ -92,18 +92,18 @@ public:
     constexpr SigmoidActivationFunction() {}
 
     template <size_t InputDimension> 
-    VectorND<InputDimension> getValue(const VectorND<InputDimension>& input) const
+    constexpr VectorND<InputDimension> getValue(const VectorND<InputDimension>& input) const
     {
         VectorND<InputDimension> result{};
         for (int index = 0; index < InputDimension; ++index)
         {
-            if (input[index] >= 0)
+            if (input[index] < 0)
             {
-                result[index] = 1. / (1. + exp(-input[index]));
+                result[index] = 1. / (1. + constexprExp(-input[index]));
             }
             else
             {
-                double exponent = exp(input[index]);
+                double exponent = constexprExp(input[index]);
                 result[index] = exponent / (1. + exponent);
             }
         }
@@ -111,7 +111,7 @@ public:
     }
 
     template <size_t InputDimension>
-    VectorND<InputDimension> getDerivativeValue(const VectorND<InputDimension>& input) const
+    constexpr VectorND<InputDimension> getDerivativeValue(const VectorND<InputDimension>& input) const
     {
         VectorND<InputDimension> oneVector = VectorND<InputDimension>::ones();
         VectorND<InputDimension> functionValue = getValue(input);

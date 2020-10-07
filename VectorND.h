@@ -32,7 +32,10 @@ class VectorND
 public:
     constexpr VectorND() : _values{}
     {
-        std::fill(_values.begin(), _values.end(), 0.);
+        for (int index = 0; index < n; ++index)
+        {
+           _values[index] = 0.;
+        }
     }
 
     template <typename... T>
@@ -41,22 +44,22 @@ public:
     constexpr VectorND(const VectorND<n>& other) : _values(other._values){}
 
     constexpr VectorND<n>& operator= (const VectorND<n>& other)
-	{
+    {
         for (int index = 0; index < n; ++index)
-		{
-			_values[index] = other[index];
-		}
-		return *this;
-	}
+        {
+            _values[index] = other[index];
+        }
+        return *this;
+    }
 
     constexpr VectorND<n>& operator= (std::initializer_list<double> list)
-	{
-#pragma omp parallel for
-		for (auto value : list)
-		{
-			_values.push_back(value);
-		}
-	}
+    {
+        for (int index = 0; index < list.size(); ++index)
+        {
+            _values[index] = list[index];
+        }
+        return *this;
+    }
 
     constexpr int dimension() const
     {
