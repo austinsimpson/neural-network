@@ -21,7 +21,10 @@ public:
         return _output;
     }
 
-    constexpr TrainingPointND<InputDimension, OutputDimension>& operator=(const TrainingPointND<InputDimension, OutputDimension>& other)
+    constexpr TrainingPointND<InputDimension, OutputDimension>& operator=
+    (
+        const TrainingPointND<InputDimension, OutputDimension>& other
+    )
     {
         _input = other._input;
         _output = other._output;

@@ -35,9 +35,9 @@ int main(int argc, char** argv)
  
     constexpr std::array<TrainingPointND<1, 1>, 50> sineValues = generateSineSample<50>();
 
-    constexpr NeuralNetwork<NeuralNetworkLayer<IdentityActivationFunction, 1>,
-                            NeuralNetworkLayer<SigmoidActivationFunction, 8>,
-                            NeuralNetworkLayer<IdentityActivationFunction, 1>> net{ FunctionType::MeanSquaredError, sineValues, 30, 50, 0.005 };
+    NeuralNetwork<NeuralNetworkLayer<IdentityActivationFunction, 1>,
+                  NeuralNetworkLayer<SigmoidActivationFunction, 8>,
+                  NeuralNetworkLayer<IdentityActivationFunction, 1>> net{ FunctionType::MeanSquaredError, sineValues, 100, 10000, 0.005 };
 
     GraphWidget widget{nullptr};
     widget.addLayer(FunctionModel{[&net](qreal input) -> qreal {

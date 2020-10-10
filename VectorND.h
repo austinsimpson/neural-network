@@ -43,7 +43,10 @@ public:
 
     constexpr VectorND(const VectorND<n>& other) : _values(other._values){}
 
-    constexpr VectorND<n>& operator= (const VectorND<n>& other)
+    constexpr VectorND<n>& operator= 
+    (
+        const VectorND<n>& other
+    )
     {
         for (int index = 0; index < n; ++index)
         {
@@ -52,7 +55,10 @@ public:
         return *this;
     }
 
-    constexpr VectorND<n>& operator= (std::initializer_list<double> list)
+    constexpr VectorND<n>& operator= 
+    (
+        std::initializer_list<double> list
+    )
     {
         for (int index = 0; index < list.size(); ++index)
         {
@@ -105,7 +111,11 @@ public:
     }
 
 
-    constexpr void setValue(const int index, const double value)
+    constexpr void setValue
+    (
+        const int index, 
+        const double value
+    )
     {
         if (0 <= index && index < n)
         {
@@ -113,7 +123,10 @@ public:
         }
     }
 
-    constexpr VectorND<n> operator+(const VectorND<n>& vector) const
+    constexpr VectorND<n> operator+
+    (
+        const VectorND<n>& vector
+    )   const
     {
         VectorND<n> result;
 #pragma omp parallel for
@@ -124,7 +137,10 @@ public:
         return result;
     }
 
-    constexpr VectorND<n>& operator+=(const VectorND<n>& other)
+    constexpr VectorND<n>& operator+=
+    (
+        const VectorND<n>& other
+    )
     {
         for (int index = 0; index < n; ++index)
         {
@@ -133,7 +149,10 @@ public:
         return *this;
     }
 
-    constexpr VectorND<n> operator-(const VectorND<n>& other) const
+    constexpr VectorND<n> operator-
+    (
+        const VectorND<n>& other
+    )   const
     {
         VectorND<n> result;
 #pragma omp parallel for
@@ -144,7 +163,10 @@ public:
         return result;
     }
 
-    constexpr VectorND<n>& operator-=(const VectorND<n>& other)
+    constexpr VectorND<n>& operator-=
+    (
+        const VectorND<n>& other
+    )
     {
         for (int index = 0; index < n; ++index)
         {
@@ -153,7 +175,10 @@ public:
         return *this;
     }
 
-    double operator*(const VectorND<n>& vector) const
+    double operator*
+    (
+        const VectorND<n>& vector
+    )   const
     {
         double result = 0.0;
 
@@ -166,7 +191,10 @@ public:
         return result;
     }
 
-    VectorND<n> operator*(double scalar) const
+    VectorND<n> operator*
+    (
+        double scalar
+    )   const
     {
         VectorND<n> result;
         #pragma omp parallel for
@@ -182,7 +210,10 @@ public:
 		return operator*(1.0 / scalar);
 	}
 
-    constexpr void pointwiseDivide(const VectorND<n>& other)
+    constexpr void pointwiseDivide
+    (
+        const VectorND<n>& other
+    )
     {
         #pragma omp parallel for
         for (int i = 0; i < n; ++i)
@@ -191,7 +222,10 @@ public:
         }
     }
 
-    constexpr VectorND<n>& pointwiseMultiply(const VectorND<n>& other)
+    constexpr VectorND<n>& pointwiseMultiply
+    (
+        const VectorND<n>& other
+    )
     {
         #pragma omp parallel for
         for (int i = 0; i < n; ++i)
@@ -201,7 +235,10 @@ public:
         return *this;
     }
 
-    constexpr VectorND<n> pointwiseMultiply(const VectorND<n>& other) const
+    constexpr VectorND<n> pointwiseMultiply
+    (
+        const VectorND<n>& other
+    )   const
     {
         VectorND<n> result{};
         #pragma omp parallel for

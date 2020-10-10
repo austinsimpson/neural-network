@@ -30,7 +30,10 @@ public:
 
     range(const range& other) : _begin(other._begin), _end(other._end), _currentValue(other._currentValue) {}
 
-    range& operator=(const range& other)
+    range& operator=
+    (
+         const range& other
+    )
     {
         _begin = other._begin;
         _end = other._end;
@@ -38,12 +41,18 @@ public:
         return *this;
     }
 
-    bool operator==(const range& other)
+    bool operator==
+    (
+        const range& other
+    )
     {
         return _currentValue >= other._end;
     }
 
-    bool operator!=(const range& other)
+    bool operator!=
+    (
+        const range& other
+    )
     {
         return !(*this == other);
     }
