@@ -14,38 +14,14 @@
 #include <iostream>
 
 #include <QApplication>
-
-constexpr auto pi = 3.14159265358979323846;
-
-template <size_t N>
-constexpr std::array<TrainingPointND<1, 1>, N> generateSineSample()
-{
-    std::array<TrainingPointND<1, 1>, N> sineValues{};
-    for (auto index = 0; index < N; ++index)
-    {
-        double x = (2. * pi) * static_cast<double>(index) / N;
-        sineValues[index] = TrainingPointND<1, 1>{ VectorND<1>{x}, VectorND<1>{constexprSin(x)} };
-    }
-    return sineValues;
-}
+#include "NeuralNetworkDemoWindow.h"
 
 int main(int argc, char** argv)
 {
     QApplication app{ argc, argv };
- 
-    constexpr std::array<TrainingPointND<1, 1>, 50> sineValues = generateSineSample<50>();
 
-    NeuralNetwork<NeuralNetworkLayer<IdentityActivationFunction, 1>,
-                  NeuralNetworkLayer<SigmoidActivationFunction, 8>,
-                  NeuralNetworkLayer<IdentityActivationFunction, 1>> net{ FunctionType::MeanSquaredError, sineValues, 100, 10000, 0.005 };
-
-    GraphWidget widget{nullptr};
-    widget.addLayer(FunctionModel{[&net](qreal input) -> qreal {
-        return net.evaluate(VectorND<1>{input})[0];
-    }});
-
-    widget.show();
-
+    NeuralNetworkDemoWindow w;
+    w.show();
     
     return app.exec();
 }

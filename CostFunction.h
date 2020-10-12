@@ -15,6 +15,7 @@ class CostFunction
 {
 public:
     constexpr CostFunction(FunctionType functionType): _functionType(functionType) {}
+    constexpr CostFunction(const CostFunction<N>& other) : _functionType(other._functionType) {}
 
     double getValue(const VectorND<N>& approximation, const VectorND<N>& observed) const {
         double result = 0.;

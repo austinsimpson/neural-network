@@ -53,10 +53,10 @@ GraphWidget::GraphWidget
 	_mouseLocation(-1, -1),
     _zoomLevel(0),
     _translationInPixelSpace(0.0, 0.0),
-	_zoomCenter(0, 0)
+	_zoomCenter(0, 0),
+    _shouldRenderGridlines{true}
 {
     setMouseTracking(true);
-    ///setCursor(Qt::BlankCursor);
 
     computeTransform();
 
@@ -89,12 +89,15 @@ void GraphWidget::paintEvent
 	pen.setColor(QColor(0, 0, 0));
 	painter.setPen(pen);
 
+    if (_shouldRenderGridlines)
+    {
+        drawGrid(painter);
+    }
+
 	for (const auto& layer : _layers)
 	{
         layer->draw(painter, _logicalBounds, _viewportTransform);
     }
-
-    drawGrid(painter);
 
     painter.end();
 }
@@ -430,3 +433,10 @@ void GraphWidget::addLayer
     update();
 }
 
+void GraphWidget::setShouldRenderGridlines
+(
+    bool shouldRender
+)
+{
+    _shouldRenderGridlines = shouldRender;
+}

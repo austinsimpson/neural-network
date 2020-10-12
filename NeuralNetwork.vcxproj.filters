@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
+    <Filter Include="Form Files">
+      <UniqueIdentifier>{99349809-55BA-4b9d-BF79-8FDBB0286EB3}</UniqueIdentifier>
+      <Extensions>ui</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="Form Files">
+      <UniqueIdentifier>{99349809-55BA-4b9d-BF79-8FDBB0286EB3}</UniqueIdentifier>
+      <Extensions>ui</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
     <Filter Include="Generated Files">
       <UniqueIdentifier>{71ED8ED8-ACB9-4CE9-BBE1-E00B30144E11}</UniqueIdentifier>
       <Extensions>cpp;c;cxx;moc;h;def;odl;idl;res;</Extensions>
@@ -36,6 +46,12 @@
     <ClCompile Include="GraphWidget.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="MnistResultsViewModel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NeuralNetworkDemoWindow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="PointSetModel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -65,10 +81,19 @@
     <ClInclude Include="MnistDataset.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="MnistResultsViewModel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="MnistTestDataset.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="NeuralNetwork.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <CustomBuild Include="NeuralNetworkDemoWindow.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <ClInclude Include="NeuralNetworkGraphLayer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="NeuralNetworkLayer.h">
@@ -92,6 +117,9 @@
     <ClInclude Include="VectorND.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="VectorNDUtility.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="debug\moc_GraphWidget.cpp">
@@ -100,11 +128,25 @@
     <ClCompile Include="release\moc_GraphWidget.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
+    <ClCompile Include="debug\moc_NeuralNetworkDemoWindow.cpp">
+      <Filter>Generated Files</Filter>
+    </ClCompile>
+    <ClCompile Include="release\moc_NeuralNetworkDemoWindow.cpp">
+      <Filter>Generated Files</Filter>
+    </ClCompile>
     <CustomBuild Include="debug\moc_predefs.h.cbt">
       <Filter>Generated Files</Filter>
     </CustomBuild>
     <CustomBuild Include="release\moc_predefs.h.cbt">
       <Filter>Generated Files</Filter>
+    </CustomBuild>
+    <ClInclude Include="ui_NeuralNetworkDemoWindow.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="NeuralNetworkDemoWindow.ui">
+      <Filter>Form Files</Filter>
     </CustomBuild>
   </ItemGroup>
 </Project>

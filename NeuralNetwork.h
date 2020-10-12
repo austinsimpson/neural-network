@@ -3,6 +3,8 @@
 
 #include <algorithm>
 #include <array>
+#include <functional>
+#include <optional>
 #include <tuple>
 
 #include "CostFunction.h"
@@ -12,51 +14,50 @@
 #include "UniformDistribution.h"
 #include "VectorND.h"
 
-template <typename Layer, typename NextLayer, typename... Layers>
+template <typename Layer, typename NextLayer, typename... RemainingLayers>
 static constexpr size_t arraySizeHelper()
 {
     constexpr size_t weightMatrixSize = Layer::neuronCount() * NextLayer::neuronCount();
     constexpr size_t biasSize = NextLayer::neuronCount();
-    if constexpr (sizeof...(Layers) == 0)
+    if constexpr (sizeof...(RemainingLayers) == 0)
     {
         return weightMatrixSize + biasSize;
     }
     else
     {
-        return weightMatrixSize + biasSize + arraySizeHelper<NextLayer, Layers...>();
+        return weightMatrixSize + biasSize + arraySizeHelper<NextLayer, RemainingLayers...>();
     }
 }
 
-template <typename Layer, typename... Layers>
+template <typename Layer, typename... RemainingLayers>
 static constexpr size_t inputSizeHelper()
 {
     return Layer::neuronCount();
 }
 
-template <typename Layer, typename... Layers>
+template <typename Layer, typename... RemainingLayers>
 static constexpr size_t outputSizeHelper()
 {
-    if constexpr (sizeof...(Layers) == 0)
+    if constexpr (sizeof...(RemainingLayers) == 0)
     {
         return Layer::neuronCount();
     }
     else
     {
-        return outputSizeHelper<Layers...>();
+        return outputSizeHelper<RemainingLayers...>();
     }
 }
 
-
-template <typename Layer, typename... Layers>
+template <typename Layer, typename... RemainingLayers>
 static constexpr size_t maximalNeuronCountHelper()
 {
-    if constexpr (sizeof...(Layers) == 0)
+    if constexpr (sizeof...(RemainingLayers) == 0)
     {
         return Layer::neuronCount();
     }
     else
     {
-        constexpr size_t maximum = maximalNeuronCountHelper<Layers...>();
+        constexpr size_t maximum = maximalNeuronCountHelper<RemainingLayers...>();
         return Layer::neuronCount() < maximum ? maximum : Layer::neuronCount();
     }
 }
@@ -72,8 +73,10 @@ static constexpr std::tuple<Rest...> popFirst(const std::tuple<First, Rest...>& 
 {
     return std::apply([](auto head, auto... tail) {
         return std::make_tuple(tail...);
-    }, tuple);
+        }, tuple);
 }
+
+using real = double;
 
 template <typename... Layers>
 class NeuralNetwork
@@ -86,6 +89,8 @@ public:
         _costFunction(costFunctionType)
     {
         initializeWeights();
+        buildWeightOffsets<0, Layers...>();
+        buildNeuronCounts<0, Layers...>();
     }
 
     template <size_t N>
@@ -95,12 +100,31 @@ public:
         const std::array<TrainingPointND<inputSizeHelper<Layers...>(), outputSizeHelper<Layers...>()>, N>& trainingData,
         size_t epochs,
         size_t batchSize,
-        double learningRate
+        real learningRate
     ): 
         _costFunction(costFunctionType)
     {
         initializeWeights();
+        buildWeightOffsets<0, Layers...>();
+        buildNeuronCounts<0, Layers...>();
         train(trainingData, epochs, batchSize, learningRate);
+    }
+
+    constexpr NeuralNetwork
+    (
+        const NeuralNetwork<Layers...>& other
+    ):
+        _weights{other._weights},
+        _costFunction{other._costFunction},
+        _neuronCounts{other._neuronCounts},
+        _weightOffsets{other._weightOffsets}
+    {
+
+    }
+
+    ~NeuralNetwork()
+    {
+
     }
 
     constexpr void initializeWeights()
@@ -124,19 +148,19 @@ public:
     constexpr auto evaluate
     (
         const VectorND<Layer::neuronCount()>& input, 
-        size_t offset = 0
+        size_t layerIndex = 0
     )   const
     {
         VectorND<NextLayer::neuronCount()> nextInput;
-        for (int i = 0; i < NextLayer::neuronCount(); ++i)
+        for (int nextLayerNeuronIndex = 0; nextLayerNeuronIndex < NextLayer::neuronCount(); ++nextLayerNeuronIndex)
         {
-            double element = 0.;
-            for (int r = 0; r < Layer::neuronCount(); ++r)
+            real element = 0.;
+            for (int thisLayerNeuronIndex = 0; thisLayerNeuronIndex < Layer::neuronCount(); ++thisLayerNeuronIndex)
             {
-                element += _weights[i * Layer::neuronCount() + i + r + offset] * input[r];
+                element += getWeight(layerIndex, thisLayerNeuronIndex, nextLayerNeuronIndex) * input[thisLayerNeuronIndex];
             }
-            element += _weights[(i * Layer::neuronCount()) + Layer::neuronCount() + i + offset];
-            nextInput.setValue(i, element);
+            element += getBias(layerIndex, nextLayerNeuronIndex);
+            nextInput.setValue(nextLayerNeuronIndex, element);
         }
         nextInput = NextLayer::ActivationFunction().getValue(nextInput);
         if constexpr (sizeof...(Layers) == 0)
@@ -145,7 +169,7 @@ public:
         }
         else
         {
-            return evaluate<NextLayer, Layers...>(nextInput, offset + getWeightMatrixSize<Layer, NextLayer>());
+            return evaluate<NextLayer, Layers...>(nextInput, layerIndex + 1);
         }
     }
 
@@ -155,7 +179,7 @@ public:
         const std::array<TrainingPointND<inputSizeHelper<Layers...>(), outputSizeHelper<Layers...>()>, N>& trainingData, 
         size_t numberOfEpochs = 5000,
         size_t batchSize = 500, 
-        double learningRate = 0.00001
+        real learningRate = 0.00001
     )
     {
         PCG pcg;
@@ -174,44 +198,33 @@ public:
         }
     }
 
-    constexpr auto getWeightUpdates
+    template <size_t N>
+    void train
     (
-        const TrainingPointND<inputSizeHelper<Layers...>(), outputSizeHelper<Layers...>()>& trainingPoint
-    )   const
+        const std::array<TrainingPointND<inputSizeHelper<Layers...>(), outputSizeHelper<Layers...>()>, N>& trainingData,
+        size_t numberOfEpochs,
+        size_t batchSize,
+        real learningRate,
+        std::function<void(size_t)> function
+    )
     {
-        std::array<double, arraySizeHelper<Layers...>()> weightUpdates{};
-        for (size_t index = 0; index < arraySizeHelper<Layers...>(); ++index)
+        PCG pcg;
+        for (size_t epochIndex = 0; epochIndex < numberOfEpochs; ++epochIndex)
         {
-            weightUpdates[index] = 0.;
-        }
-        auto preActivations = getPreActivations(trainingPoint.input());
-        auto deltas = getDeltas(trainingPoint, preActivations);
-        weightUpdateHelper<Layers...>(weightUpdates, preActivations, deltas);
-        return weightUpdates;
-    }
-
-    template <typename Layer, typename NextLayer, typename... RemainingLayers>
-    constexpr void weightUpdateHelper
-    (
-        std::array<double, arraySizeHelper<Layers...>()>& weightUpdates, 
-        const std::tuple<VectorND<Layer::neuronCount()>, VectorND<NextLayer::neuronCount()>, VectorND<RemainingLayers::neuronCount()>...>& preActivations, 
-        const std::tuple<VectorND<NextLayer::neuronCount()>, VectorND<RemainingLayers::neuronCount()>...>& deltas, 
-        size_t weightOffset = 0
-    )   const
-    {
-        const auto& currentDelta = std::get<0>(deltas);
-        const auto currentActivation = Layer::ActivationFunction().getValue(std::get<0>(preActivations));
-        for (size_t nextLayerNeuronIndex = 0; nextLayerNeuronIndex < NextLayer::neuronCount(); ++nextLayerNeuronIndex)
-        {
-            for (size_t layerNeuronIndex = 0; layerNeuronIndex < Layer::neuronCount(); ++layerNeuronIndex)
+            for (int trainingPointNumber = 0; trainingPointNumber < batchSize; ++trainingPointNumber)
             {
-                weightUpdates[nextLayerNeuronIndex * (Layer::neuronCount() + 1) + layerNeuronIndex + weightOffset] = currentDelta[nextLayerNeuronIndex] * currentActivation[layerNeuronIndex];
+                int trainingPointIndex = pcg() % trainingData.size();
+                const auto& trainingPoint = trainingData[trainingPointIndex];
+                const auto weightUpdates = getWeightUpdates(trainingPoint);
+                for (size_t weightIndex = 0; weightIndex < _weights.size(); ++weightIndex)
+                {
+                    _weights[weightIndex] -= learningRate * weightUpdates[weightIndex];
+                }
             }
-            weightUpdates[nextLayerNeuronIndex * Layer::neuronCount() + nextLayerNeuronIndex + Layer::neuronCount() + weightOffset] = currentDelta[nextLayerNeuronIndex];
-        }
-        if constexpr(sizeof...(RemainingLayers) > 0)
-        {
-            weightUpdateHelper<NextLayer, RemainingLayers...>(weightUpdates, popFirst(preActivations), popFirst(deltas), weightOffset + getWeightMatrixSize<Layer, NextLayer>());
+            if (function)
+            {
+                function(epochIndex);
+            }
         }
     }
 
@@ -230,9 +243,76 @@ public:
         return _outputDimension;
     }
 
-    constexpr auto weights() const
+    constexpr auto& weights() const
     {
         return _weights;
+    }
+
+    constexpr const std::array<size_t, sizeof...(Layers)>& neuronCounts() const
+    {
+        return _neuronCounts;
+    }
+
+    constexpr real getWeight(size_t layerIndex, size_t sourceNeuronIndex, size_t destinationNeuronIndex) const
+    {
+        return _weights[getWeightOffset(layerIndex, sourceNeuronIndex, destinationNeuronIndex)];
+    }
+
+    constexpr real& getWeight(size_t layerIndex, size_t sourceNeuronIndex, size_t destinationNeuronIndex)
+    {
+        return _weights[getWeightOffset(layerIndex, sourceNeuronIndex, destinationNeuronIndex)];
+    }
+
+    constexpr real getBias(size_t layerIndex, size_t biasIndex) const
+    {
+        return _weights[getBiasOffset(layerIndex, biasIndex)];
+    }
+
+    constexpr real& getBias(size_t layerIndex, size_t biasIndex)
+    {
+        return _weights[getBiasOffset(layerIndex, biasIndex)];
+    }
+
+private:
+    constexpr auto getWeightUpdates
+    (
+        const TrainingPointND<inputSizeHelper<Layers...>(), outputSizeHelper<Layers...>()>& trainingPoint
+    )   const
+    {
+        std::array<real, arraySizeHelper<Layers...>()> weightUpdates{};
+        for (size_t index = 0; index < arraySizeHelper<Layers...>(); ++index)
+        {
+            weightUpdates[index] = 0.;
+        }
+        auto preActivations = getPreActivations(trainingPoint.input());
+        auto deltas = getDeltas(trainingPoint, preActivations);
+        weightUpdateHelper<Layers...>(weightUpdates, preActivations, deltas);
+        return weightUpdates;
+    }
+
+    template <typename Layer, typename NextLayer, typename... RemainingLayers>
+    constexpr void weightUpdateHelper
+    (
+        std::array<real, arraySizeHelper<Layers...>()>& weightUpdates,
+        const std::tuple<VectorND<Layer::neuronCount()>, VectorND<NextLayer::neuronCount()>, VectorND<RemainingLayers::neuronCount()>...>& preActivations,
+        const std::tuple<VectorND<NextLayer::neuronCount()>, VectorND<RemainingLayers::neuronCount()>...>& deltas,
+        size_t layerIndex = 0
+    )   const
+    {
+        const auto& currentDelta = std::get<0>(deltas);
+        const auto currentActivation = Layer::ActivationFunction().getValue(std::get<0>(preActivations));
+        for (size_t nextLayerNeuronIndex = 0; nextLayerNeuronIndex < NextLayer::neuronCount(); ++nextLayerNeuronIndex)
+        {
+            for (size_t layerNeuronIndex = 0; layerNeuronIndex < Layer::neuronCount(); ++layerNeuronIndex)
+            {
+                weightUpdates[getWeightOffset(layerIndex, layerNeuronIndex, nextLayerNeuronIndex)] = currentDelta[nextLayerNeuronIndex] * currentActivation[layerNeuronIndex];
+            }
+            weightUpdates[getBiasOffset(layerIndex, nextLayerNeuronIndex)] = currentDelta[nextLayerNeuronIndex];
+        }
+        if constexpr (sizeof...(RemainingLayers) > 0)
+        {
+            weightUpdateHelper<NextLayer, RemainingLayers...>(weightUpdates, popFirst(preActivations), popFirst(deltas), layerIndex + 1);
+        }
     }
 
     constexpr auto getPreActivations
@@ -246,24 +326,24 @@ public:
     template <typename Layer, typename NextLayer, typename... RemainingLayers>
     constexpr std::tuple<VectorND<NextLayer::neuronCount()>, VectorND<RemainingLayers::neuronCount()>...> getPreActivations
     (
-        const VectorND<Layer::neuronCount()>& input, 
-        size_t offset = 0
+        const VectorND<Layer::neuronCount()>& input,
+        size_t layerIndex = 0
     )   const
     {
         VectorND<NextLayer::neuronCount()> nextInput;
         for (int nextLayerNeuronIndex = 0; nextLayerNeuronIndex < NextLayer::neuronCount(); ++nextLayerNeuronIndex)
         {
-            double element = 0.;
+            real element = 0.;
             for (int layerNeuronIndex = 0; layerNeuronIndex < Layer::neuronCount(); ++layerNeuronIndex)
             {
-                element += _weights[nextLayerNeuronIndex * (Layer::neuronCount() + 1) + layerNeuronIndex + offset] * input[layerNeuronIndex];
+                element += getWeight(layerIndex, layerNeuronIndex, nextLayerNeuronIndex) * input[layerNeuronIndex];
             }
-            element += _weights[(nextLayerNeuronIndex * Layer::neuronCount()) + Layer::neuronCount() + nextLayerNeuronIndex + offset];
+            element += getBias(layerIndex, nextLayerNeuronIndex);
             nextInput.setValue(nextLayerNeuronIndex, element);
         }
         if constexpr (sizeof...(RemainingLayers) > 0)
         {
-            auto nextPreActivations = getPreActivations<NextLayer, RemainingLayers...>(NextLayer::ActivationFunction().getValue(nextInput), offset + getWeightMatrixSize<Layer, NextLayer>());
+            auto nextPreActivations = getPreActivations<NextLayer, RemainingLayers...>(NextLayer::ActivationFunction().getValue(nextInput), layerIndex + 1);
             return std::tuple_cat(std::tuple<VectorND<NextLayer::neuronCount()>>(nextInput), nextPreActivations);
         }
         else
@@ -274,7 +354,7 @@ public:
 
     constexpr auto getDeltas
     (
-        const TrainingPointND<inputSizeHelper<Layers...>(), outputSizeHelper<Layers...>()>& trainingPoint, 
+        const TrainingPointND<inputSizeHelper<Layers...>(), outputSizeHelper<Layers...>()>& trainingPoint,
         const std::tuple<VectorND<Layers::neuronCount()>...>& preActivations
     )   const
     {
@@ -284,8 +364,8 @@ public:
     template <size_t LayerIndex, typename Layer, typename NextLayer, typename... RemainingLayers>
     constexpr auto getDeltas
     (
-        const TrainingPointND<inputSizeHelper<Layers...>(), outputSizeHelper<Layers...>()>& trainingPoint, 
-        const std::tuple<VectorND<Layers::neuronCount()>...>& preActivations, 
+        const TrainingPointND<inputSizeHelper<Layers...>(), outputSizeHelper<Layers...>()>& trainingPoint,
+        const std::tuple<VectorND<Layers::neuronCount()>...>& preActivations,
         size_t weightOffset = 0
     )   const
     {
@@ -294,15 +374,15 @@ public:
         const auto activationDerivativeAtLayer = Layer::ActivationFunction().getDerivativeValue(std::get<LayerIndex>(preActivations));
 
         VectorND<Layer::neuronCount()> errorAtThisLayer;
-        for (size_t layerNodeIndex = 0; layerNodeIndex < Layer::neuronCount(); ++layerNodeIndex)
+        for (size_t layerNeuronIndex = 0; layerNeuronIndex < Layer::neuronCount(); ++layerNeuronIndex)
         {
-            double errorElement = 0.;
-            for (size_t nextLayerNodeIndex = 0; nextLayerNodeIndex < NextLayer::neuronCount(); ++nextLayerNodeIndex)
+            real errorElement = 0.;
+            for (size_t nextLayerNeuronIndex = 0; nextLayerNeuronIndex < NextLayer::neuronCount(); ++nextLayerNeuronIndex)
             {
-                const double& weight = _weights[nextLayerNodeIndex * (Layer::neuronCount() + 1) + layerNodeIndex + weightOffset];
-                errorElement += weight * nextDelta[nextLayerNodeIndex];
+                const real weight = getWeight(LayerIndex, layerNeuronIndex, nextLayerNeuronIndex);
+                errorElement += weight * nextDelta[nextLayerNeuronIndex];
             }
-            errorAtThisLayer.setValue(layerNodeIndex, errorElement);
+            errorAtThisLayer.setValue(layerNeuronIndex, errorElement);
         }
 
         errorAtThisLayer.pointwiseMultiply(activationDerivativeAtLayer);
@@ -322,11 +402,58 @@ public:
     }
 
 
-private:
+    template <int LayerIndex, typename Layer, typename NextLayer, typename... RemainingLayers>
+    constexpr void buildWeightOffsets()
+    {
+        if constexpr (LayerIndex == 0)
+        {
+            _weightOffsets[0] = 0;
+        }
+
+        size_t offsetAtThisLayer = LayerIndex == 0 ? 0 : _weightOffsets[LayerIndex];
+        size_t offsetAtNextLayer = Layer::neuronCount() * NextLayer::neuronCount() + NextLayer::neuronCount();
+        _weightOffsets[LayerIndex + 1] = offsetAtThisLayer + offsetAtNextLayer;
+
+        if constexpr (sizeof...(RemainingLayers) > 0)
+        {
+            buildWeightOffsets<LayerIndex + 1, NextLayer, RemainingLayers...>();
+        }
+    }
+
+    template <size_t LayerIndex, typename Layer, typename... RemainingLayers>
+    constexpr void buildNeuronCounts()
+    {
+        _neuronCounts[LayerIndex] = Layer::neuronCount();
+        if constexpr (sizeof...(RemainingLayers) > 0)
+        {
+            buildNeuronCounts<LayerIndex + 1, RemainingLayers...>();
+        }
+    }
+
+
+    constexpr size_t getWeightOffset(size_t layerIndex, size_t sourceNeuronIndex, size_t destinationNeuronIndex) const
+    {
+        size_t thisLayerNeuronCount = _neuronCounts[layerIndex];
+        size_t nextLayerNeuronCount = _neuronCounts[layerIndex + 1];
+        size_t offset = _weightOffsets[layerIndex];
+        return destinationNeuronIndex * (thisLayerNeuronCount + 1) + sourceNeuronIndex + offset;
+    }
+
+    constexpr size_t getBiasOffset(size_t layerIndex, size_t biasIndex) const
+    {
+        size_t thisLayerNeuronCount = _neuronCounts[layerIndex];
+        size_t offset = _weightOffsets[layerIndex];
+        return (biasIndex * thisLayerNeuronCount) + thisLayerNeuronCount + biasIndex + offset;
+    }
+
     static constexpr size_t _networkSize = arraySizeHelper<Layers...>();
     static constexpr size_t _inputDimension = inputSizeHelper<Layers...>();
     static constexpr size_t _outputDimension = outputSizeHelper<Layers...>();
-    std::array<double, _networkSize> _weights;
+    std::array<real, _networkSize> _weights;
+
+    std::array<size_t, sizeof...(Layers)> _weightOffsets;
+    std::array<size_t, sizeof...(Layers)> _neuronCounts;
+
     CostFunction<_outputDimension> _costFunction;
 };
 

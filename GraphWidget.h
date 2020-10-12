@@ -50,6 +50,8 @@ public:
 	void addLayer(const QVector<QPointF>& points);
     void addLayer(std::unique_ptr<GraphLayer>&& layer);
 
+    void setShouldRenderGridlines(bool shouldRender);
+
 public slots:
     void reset();
 signals:
@@ -85,6 +87,8 @@ private:
 
     QPen _majorGridlinePen;
     QPen _minorGridlinePen;
+
+    bool _shouldRenderGridlines;
 
     std::vector<std::unique_ptr<GraphLayer>> _layers;
 };
