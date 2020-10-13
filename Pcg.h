@@ -1,3 +1,5 @@
+/*This bit of code was written by Jason Turner, without license as far as I can tell. You can find the video that this code is sourced from here: https://www.youtube.com/watch?v=rpn_5Mrrxf8*/
+
 #ifndef PCG_H
 #define PCG_H
 
